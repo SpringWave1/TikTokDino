@@ -1,26 +1,26 @@
 {
   "images" : [
     {
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
-      "filename" : "lark.jpg",
+      "filename" : "logo.jpeg",
       "idiom" : "universal",
       "resizing" : {
         "cap-insets" : {
-          "bottom" : 40,
-          "left" : 39,
-          "right" : 40,
-          "top" : 39
+          "bottom" : 67,
+          "left" : 63,
+          "right" : 19,
+          "top" : 12
         },
         "center" : {
-          "height" : 1,
+          "height" : 11,
           "mode" : "tile",
           "width" : 1
         },
         "mode" : "9-part"
       },
+      "scale" : "1x"
+    },
+    {
+      "idiom" : "universal",
       "scale" : "2x"
     },
     {

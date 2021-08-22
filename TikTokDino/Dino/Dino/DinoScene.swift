@@ -18,6 +18,10 @@ struct PhysicsCategory {
     static let Obstacle: UInt32 = 0b1000
 }
 
+class ObSpriteNode: SKSpriteNode {
+    var role: Int?
+}
+
 class DinoScene: SKScene, SKPhysicsContactDelegate {
     
     var sceneCreated = false
@@ -26,17 +30,20 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
     var shouldSpawnObstacle = false
     var shouldUpdateScore = false
     
-    let dinoDarkColor = SKColor(red: 83/255.0, green: 83/255.0, blue: 83/255.0, alpha: 1)
+    let dinoDarkColor = SKColor.blue
     
     let titleNode = SKLabelNode(fontNamed: "Courier")
     let subtitleNode = SKLabelNode(fontNamed: "Courier")
     let scoreNode = SKLabelNode(fontNamed: "Courier")
-    let dinoSpriteNode = SKSpriteNode(imageNamed: "DinoSprite")
+    let dinoSpriteNode = SKSpriteNode(imageNamed: "logo")
+    let healthNode = SKSpriteNode(imageNamed: "5life")
     let bottomCollider: SKPhysicsBody = SKPhysicsBody(edgeFrom: CGPoint(x: 0, y:0), to: CGPoint(x:1005, y:0))
     
     var currentScore = 0
     
-    var obstacleList: [String] = ["lark", "tiktok", "dongchedi", "dongchedi", "wechat"]
+    var enemyList: [String] = ["wechat", "qq", "netmusic"]
+    var friendlyList: [String] = ["lark", "tiktok", "dongchedi", "melon"]
+    var life = 5
     
     override func didMove(to view: SKView) {
         if !sceneCreated {
@@ -63,6 +70,8 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
         subtitleNode.isHidden = true
         self.shouldSpawnObstacle = true
         self.spawnObstacle()
+        self.updateHealth(health: 5, heal: false)
+        self.life = 5
     }
     
     func createSceneContents() {
@@ -70,8 +79,9 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
         self.addChild(subtitleLabel())
         self.addChild(dinoSprite())
         self.addChild(scoreLabel())
+        self.addChild(health())
         self.physicsWorld.contactDelegate = self
-        self.backgroundColor = SKColor.lightGray
+        self.backgroundColor = SKColor(red: 147/255.0, green: 227/255.0, blue: 220/255.0, alpha: 0.5)
         //self.scaleMode = .aspectFit
         
         self.physicsBody = bottomCollider
@@ -92,7 +102,7 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func titleLabel() -> SKLabelNode {
-        titleNode.text = "TouchBarDino"
+        titleNode.text = "TouchBarTikTok"
         titleNode.fontSize = 10
         titleNode.position = CGPoint(x: self.frame.midX, y: self.frame.midY)
         titleNode.fontColor = dinoDarkColor
@@ -126,9 +136,16 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
         return String(format: "%07d", currentScore)
     }
     
+    func health() -> SKSpriteNode{
+        healthNode.setScale(CGFloat(0.5))
+        healthNode.position = CGPoint(x: 50, y: 15)
+        updateHealth(health: 5, heal: false)
+        return healthNode
+    }
+    
     func dinoSprite() -> SKSpriteNode {
-        dinoSpriteNode.setScale(0.5)
-        dinoSpriteNode.position = CGPoint(x: 20, y: 40)
+        dinoSpriteNode.setScale(0.25)
+        dinoSpriteNode.position = CGPoint(x: 100, y: 40)
         dinoSpriteNode.physicsBody = SKPhysicsBody(rectangleOf: dinoSpriteNode.size)
         if let pb = dinoSpriteNode.physicsBody {
             pb.isDynamic = true
@@ -192,12 +209,22 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
         
         let x = arc4random() % 3;
         if x != 2 {
-            let randomName = obstacleList.randomElement()!
-            let ob = SKSpriteNode(imageNamed: randomName)
+            let randomName: String
+            let role: Int
+            if arc4random()%3 != 0{
+                randomName = enemyList.randomElement()!
+                role = 0
+            } else{
+                randomName = friendlyList.randomElement()!
+                role = 1
+            }
+            let ob = ObSpriteNode(imageNamed: randomName)
+            ob.role = role
             ob.name = randomName
-            ob.setScale(CGFloat(drand48() * 0.2 + 0.3))
+            ob.setScale(CGFloat(0.5))
+//            ob.setScale(CGFloat(drand48() * 0.2 + 0.3))
             ob.position = CGPoint(x: 1020, y: ob.size.height/2)
-            ob.physicsBody = SKPhysicsBody(texture: SKTexture(imageNamed: randomName), size: ob.size)
+            ob.physicsBody = SKPhysicsBody(texture: SKTexture(imageNamed: randomName), size: CGSize(width: ob.size.width/2, height: ob.size.height))
             if let pb = ob.physicsBody {
                 pb.isDynamic = true
                 pb.affectedByGravity = false
@@ -221,8 +248,7 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
         }
         
         
-        let randDelay = drand48() * 0.3 - Double(currentScore) / 1000.0
-        
+        let randDelay = drand48() * 0.3 - Double(min(currentScore, 300)) / 1000.0
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 + randDelay, execute: {
             if self.shouldSpawnObstacle == true {
                 self.spawnObstacle()
@@ -245,15 +271,91 @@ class DinoScene: SKScene, SKPhysicsContactDelegate {
         if (contact.bodyA == dinoSpriteNode.physicsBody && contact.bodyB == bottomCollider) ||
             (contact.bodyB == dinoSpriteNode.physicsBody && contact.bodyA == bottomCollider) {
             canJump = true
+        } else {
+            // determine enemy or friendly
+            var ob: ObSpriteNode
+            if let nodeA = contact.bodyA.node as? ObSpriteNode{
+                ob = nodeA
+            } else if let nodeB = contact.bodyB.node as? ObSpriteNode{
+                ob = nodeB
+            } else{
+                return
+            }
+            if ob.role == 0{
+                life -= 1
+                updateHealth(health: life, heal: false)
+                explode(firework: ob)
+            } else if life < 5{
+                life += 1
+                updateHealth(health: life, heal: true)
+                ob.removeFromParent()
+            }
+            if life == 0{
+                endGame()
+            }
         }
+    }
+    
+    func explode(firework: SKNode) {
+        if let emitter = SKEmitterNode(fileNamed: "explode") {
+            emitter.position = firework.position
+            addChild(emitter)
+        }
+        
+        firework.removeFromParent()
+    }
+    
+    func updateHealth(health: Int, heal: Bool){
+        var myFunc = {}
+        if health >= 5 {
+            if heal{
+                self.healthNode.texture = SKTexture(imageNamed: "5heal")
+            }
+            myFunc = {self.healthNode.texture = SKTexture(imageNamed: "5life")}
+        } else if health == 4{
+            if heal{
+                self.healthNode.texture = SKTexture(imageNamed: "4heal")
+            } else{
+                self.healthNode.texture = SKTexture(imageNamed: "4hurt")
+            }
+            myFunc = {self.healthNode.texture = SKTexture(imageNamed: "4life")}
+        } else if health == 3{
+            if heal{
+                self.healthNode.texture = SKTexture(imageNamed: "3heal")
+            } else{
+                self.healthNode.texture = SKTexture(imageNamed: "3hurt")
+            }
+            myFunc = {self.healthNode.texture = SKTexture(imageNamed: "3life")}
+        } else if health == 2{
+            if heal{
+                self.healthNode.texture = SKTexture(imageNamed: "2heal")
+            } else{
+                self.healthNode.texture = SKTexture(imageNamed: "2hurt")
+            }
+            myFunc = {self.healthNode.texture = SKTexture(imageNamed: "2life")}
+        } else if health == 1{
+            if heal{
+                
+            } else{
+                self.healthNode.texture = SKTexture(imageNamed: "1hurt")
+            }
+            myFunc = {self.healthNode.texture = SKTexture(imageNamed: "1life")}
+        } else{
+            if heal{
+               
+            } else{
+                self.healthNode.texture = SKTexture(imageNamed: "0hurt")
+            }
+            myFunc = {self.healthNode.texture = SKTexture(imageNamed: "0life")}
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: myFunc)
+
     }
     
     func didEnd(_ contact: SKPhysicsContact) {
         if (contact.bodyA == dinoSpriteNode.physicsBody && contact.bodyB == bottomCollider) ||
             (contact.bodyB == dinoSpriteNode.physicsBody && contact.bodyA == bottomCollider) {
             canJump = false
-        } else {
-            endGame()
         }
     }
     

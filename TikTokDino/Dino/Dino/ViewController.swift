@@ -73,6 +73,7 @@ class ViewController: NSViewController {
         }
     }
     
+    // 设置点击区域为touch bar的范围
     func setupMainTapReceiverButton() {
         mainTapReceiverButton.isTransparent = true
         mainTapReceiverButton.translatesAutoresizingMaskIntoConstraints = false
